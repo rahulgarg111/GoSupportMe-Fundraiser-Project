@@ -1,7 +1,7 @@
 # GoSupportMe - 
 FULL STACK WEB APPLICATION
 
-LIVE - https://684e83d19867bbc810407659--delicate-mermaid-d2d796.netlify.app/login
+LIVE - https://684e83d19867bbc810407659--delicate-mermaid-d2d796.netlify.app
 
 PROJECT WALKTHROUGH VIDEO - https://www.youtube.com/watch?v=mbZ-lnZeR9U
 
