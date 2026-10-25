@@ -1,219 +1,165 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import { ref, push } from 'firebase/database';
-import { database } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { addCampaign } from '../store/campaignSlice';
+import { useToast } from '../context/ToastContext';
+import { createCampaign } from '../services/campaigns';
 import MediaUpload from '../components/MediaUpload';
 import CampaignPreview from '../components/CampaignPreview';
 import MilestoneTracker from '../components/MilestoneTracker';
+import { formatMoney } from '../utils/format';
+
+const STEPS = ['Basics', 'Your story', 'Photos & video', 'Milestones & publish'];
+
+const todayPlus = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
 
 const CreateCampaign = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const { user } = useAuth();
+  const toast = useToast();
   const [step, setStep] = useState(1);
-  const [campaign, setCampaign] = useState({
-    title: '',
-    description: '',
-    goal: '',
-    endDate: '',
-    media: [],
-    milestones: []
-  });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [campaign, setCampaign] = useState({ title: '', description: '', goal: '', endDate: todayPlus(30), media: [], milestones: [] });
 
-  const updateCampaign = (field, value) => {
-    setCampaign(prev => ({ ...prev, [field]: value }));
+  const update = (field, value) => {
+    setCampaign((prev) => ({ ...prev, [field]: value }));
+    setErrors((e) => ({ ...e, [field]: '' }));
   };
 
-  const handleMediaUpload = (media) => {
-    setCampaign(prev => ({ ...prev, media: [...prev.media, media] }));
+  const validate = (s) => {
+    const e = {};
+    if (s === 1) {
+      if (campaign.title.trim().length < 5) e.title = 'Give your fundraiser a title of at least 5 characters.';
+      if (!(Number(campaign.goal) >= 100)) e.goal = 'Set a goal of at least ₹100.';
+      if (!campaign.endDate || new Date(campaign.endDate) <= new Date()) e.endDate = 'Pick an end date in the future.';
+    }
+    if (s === 2 && campaign.description.trim().length < 30) e.description = 'Tell your story in at least 30 characters.';
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!user) return;
-    
+  const next = () => validate(step) && setStep((s) => Math.min(s + 1, STEPS.length));
+  const back = () => setStep((s) => Math.max(s - 1, 1));
+
+  const publish = async () => {
+    if (!validate(1)) { setStep(1); return; }
+    if (!validate(2)) { setStep(2); return; }
     setLoading(true);
     try {
-      const campaignData = {
-        ...campaign,
-        goal: parseFloat(campaign.goal) || 0,
-        endDate: campaign.endDate ? new Date(campaign.endDate).getTime() : Date.now() + (30 * 24 * 60 * 60 * 1000),
+      await createCampaign({
+        title: campaign.title.trim(),
+        description: campaign.description.trim(),
+        goal: Math.round(Number(campaign.goal)),
+        endDate: new Date(campaign.endDate).getTime(),
+        media: campaign.media,
+        milestones: campaign.milestones.filter((m) => m.amount <= Number(campaign.goal)),
         raised: 0,
         createdBy: user.uid,
+        createdByEmail: user.email,
         createdAt: Date.now(),
-        status: 'active'
-      };
-
-      const campaignsRef = ref(database, 'campaigns');
-      const newCampaignRef = await push(campaignsRef, campaignData);
-      
-      dispatch(addCampaign({ ...campaignData, id: newCampaignRef.key }));
-      navigate('/dashboard');
+        status: 'active',
+      });
+      toast.success('🚀 Your fundraiser is live!');
+      navigate('/my-campaigns');
     } catch (error) {
-      console.error('Error creating campaign:', error);
-      alert('Failed to create campaign. Please try again.');
-    } finally {
+      console.error(error);
+      toast.error('Could not publish your fundraiser. Please try again.');
       setLoading(false);
     }
   };
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 4));
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
-
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-      <h1>Create Your Campaign</h1>
-      
-      <div style={{ display: 'flex', marginBottom: '30px' }}>
-        {[1, 2, 3, 4].map(num => (
-          <div key={num} style={{ 
-            flex: 1, 
-            textAlign: 'center', 
-            padding: '10px',
-            backgroundColor: step >= num ? '#007bff' : '#e9ecef',
-            color: step >= num ? 'white' : '#666',
-            margin: '0 2px'
-          }}>
-            Step {num}
-          </div>
-        ))}
+    <main className="page">
+      <div className="page-head">
+        <div>
+          <h1>Start a fundraiser</h1>
+          <p className="muted">Four quick steps. You can see a live preview on the right as you go.</p>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-        <div>
+      <ol className="stepper">
+        {STEPS.map((label, i) => (
+          <li key={label} className={step === i + 1 ? 'current' : step > i + 1 ? 'done' : ''}>
+            <span className="step-num">{step > i + 1 ? '✓' : i + 1}</span>
+            <span className="step-label">{label}</span>
+          </li>
+        ))}
+      </ol>
+
+      <div className="create-layout">
+        <section className="card">
           {step === 1 && (
-            <div>
-              <h3>Basic Information</h3>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Campaign Title:</label>
-                <input
-                  type="text"
-                  value={campaign.title}
-                  onChange={(e) => updateCampaign('title', e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  placeholder="Enter your campaign title"
-                />
+            <>
+              <h2>The basics</h2>
+              <label className="field">
+                <span>Fundraiser title</span>
+                <input value={campaign.title} onChange={(e) => update('title', e.target.value)} placeholder="e.g. Books and laptops for our village library" maxLength={80} />
+                {errors.title && <small className="error-text">{errors.title}</small>}
+              </label>
+              <div className="grid-2">
+                <label className="field">
+                  <span>Goal (₹)</span>
+                  <input type="number" min="100" value={campaign.goal} onChange={(e) => update('goal', e.target.value)} placeholder="50000" />
+                  {errors.goal && <small className="error-text">{errors.goal}</small>}
+                </label>
+                <label className="field">
+                  <span>End date</span>
+                  <input type="date" min={todayPlus(1)} value={campaign.endDate} onChange={(e) => update('endDate', e.target.value)} />
+                  {errors.endDate && <small className="error-text">{errors.endDate}</small>}
+                </label>
               </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Fundraising Goal ($):</label>
-                <input
-                  type="number"
-                  value={campaign.goal}
-                  onChange={(e) => updateCampaign('goal', e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  placeholder="Enter your fundraising goal"
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>End Date:</label>
-                <input
-                  type="date"
-                  value={campaign.endDate}
-                  onChange={(e) => updateCampaign('endDate', e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  placeholder="Enter your end date"
-                />
-              </div>
-            </div>
+            </>
           )}
 
           {step === 2 && (
-            <div>
-              <h3>Campaign Description</h3>
-              <textarea
-                value={campaign.description}
-                onChange={(e) => updateCampaign('description', e.target.value)}
-                style={{ 
-                  width: '100%', 
-                  height: '200px', 
-                  padding: '10px', 
-                  border: '1px solid #ddd', 
-                  borderRadius: '4px',
-                  resize: 'vertical'
-                }}
-                placeholder="Tell your story... Why are you raising funds? What will the money be used for?"
-              />
-            </div>
+            <>
+              <h2>Your story</h2>
+              <p className="muted small">Explain why you're raising money, who it helps and how the funds will be used.</p>
+              <label className="field">
+                <textarea rows={9} value={campaign.description} onChange={(e) => update('description', e.target.value)} placeholder="Tell your story…" maxLength={4000} />
+                <small className="muted">{campaign.description.length}/4000</small>
+                {errors.description && <small className="error-text">{errors.description}</small>}
+              </label>
+            </>
           )}
 
           {step === 3 && (
-            <div>
-              <h3>Media Upload</h3>
-              <MediaUpload 
-                onMediaUpload={handleMediaUpload}
+            <>
+              <h2>Photos & video</h2>
+              <p className="muted small">Fundraisers with a photo get noticed far more. The first file becomes the cover.</p>
+              <MediaUpload
                 existingMedia={campaign.media}
+                onMediaUpload={(m) => update('media', [...campaign.media, m])}
+                onRemove={(i) => update('media', campaign.media.filter((_, idx) => idx !== i))}
               />
-            </div>
+            </>
           )}
 
           {step === 4 && (
-            <div>
-              <h3>Milestones & Review</h3>
-              <MilestoneTracker
-                milestones={campaign.milestones}
-                onMilestonesChange={(milestones) => updateCampaign('milestones', milestones)}
-              />
-              <div style={{ marginTop: '20px' }}>
-                <button
-                  onClick={handleSubmit}
-                  disabled={loading || !campaign.title || !campaign.goal}
-                  style={{
-                    width: '100%',
-                    padding: '15px',
-                    backgroundColor: loading ? '#6c757d' : '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '16px',
-                    cursor: loading ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {loading ? 'Creating Campaign...' : 'Publish Campaign'}
-                </button>
+            <>
+              <h2>Milestones & publish</h2>
+              <MilestoneTracker milestones={campaign.milestones} goal={Number(campaign.goal)} onMilestonesChange={(m) => update('milestones', m)} />
+              <div className="review">
+                <h3>Review</h3>
+                <p><strong>{campaign.title || '—'}</strong></p>
+                <p className="muted small">Goal {formatMoney(campaign.goal)} · ends {campaign.endDate ? new Date(campaign.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} · {campaign.media.length} media · {campaign.milestones.length} milestone{campaign.milestones.length === 1 ? '' : 's'}</p>
               </div>
-            </div>
+            </>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
-            <button
-              onClick={prevStep}
-              disabled={step === 1}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: step === 1 ? '#6c757d' : '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: step === 1 ? 'not-allowed' : 'pointer'
-              }}
-            >
-              Previous
-            </button>
-            <button
-              onClick={nextStep}
-              disabled={step === 4}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: step === 4 ? '#6c757d' : '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: step === 4 ? 'not-allowed' : 'pointer'
-              }}
-            >
-              Next
-            </button>
+          <div className="step-actions">
+            <button className="btn btn-ghost" onClick={back} disabled={step === 1 || loading}>← Back</button>
+            {step < STEPS.length ? (
+              <button className="btn btn-primary" onClick={next}>Continue →</button>
+            ) : (
+              <button className="btn btn-primary" onClick={publish} disabled={loading}>{loading ? 'Publishing…' : '🚀 Publish fundraiser'}</button>
+            )}
           </div>
-        </div>
+        </section>
 
-        <div>
-          <CampaignPreview campaign={campaign} />
-        </div>
+        <CampaignPreview campaign={campaign} />
       </div>
-    </div>
+    </main>
   );
 };
 

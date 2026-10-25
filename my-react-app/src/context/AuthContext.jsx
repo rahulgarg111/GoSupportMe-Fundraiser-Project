@@ -1,8 +1,6 @@
-import React, { createContext, useContext, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
-import { setUser, setLoading } from '../store/authSlice';
 
 const AuthContext = createContext();
 
@@ -15,18 +13,19 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const dispatch = useDispatch();
-  const { user, isAuthenticated, loading } = useSelector(state => state.auth);
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    dispatch(setLoading(true));
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      dispatch(setUser(user));
-      dispatch(setLoading(false));
+      setUser(user);
+      setIsAuthenticated(!!user);
+      setLoading(false);
     });
 
     return unsubscribe;
-  }, [dispatch]);
+  }, []);
 
   const login = async (email, password) => {
     return await signInWithEmailAndPassword(auth, email, password);

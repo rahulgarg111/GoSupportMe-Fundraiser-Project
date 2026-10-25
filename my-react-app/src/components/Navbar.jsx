@@ -1,76 +1,53 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { nameFromEmail } from '../utils/format';
+
+const LINKS = [
+  ['/dashboard', 'Explore'],
+  ['/my-campaigns', 'My Campaigns'],
+  ['/my-medals', 'My Medals'],
+];
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
+  const [open, setOpen] = useState(false);
 
   if (!isAuthenticated) return null;
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const name = nameFromEmail(user?.email);
+
   return (
-    <nav style={{
-      backgroundColor: '#007bff',
-      padding: '1rem 2rem',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      color: 'white'
-    }}>
-      <Link 
-        to="/dashboard" 
-        style={{ 
-          color: 'white', 
-          textDecoration: 'none', 
-          fontSize: '24px', 
-          fontWeight: 'bold' 
-        }}
-      >
-        GoSupportMe
-      </Link>
-      
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        <div style={{ display: 'flex', gap: '20px' }}>
-          <Link 
-            to="/dashboard" 
-            style={{ color: 'white', textDecoration: 'none' }}
-          >
-            Dashboard
-          </Link>
-          <Link 
-            to="/create-campaign" 
-            style={{ color: 'white', textDecoration: 'none' }}
-          >
-            Create Campaign
-          </Link>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span>{user?.email}</span>
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: 'transparent',
-              color: 'white',
-              border: '1px solid white',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Logout
-          </button>
-        </div>
+    <header className="navbar">
+      <div className="navbar-inner">
+        <Link to="/dashboard" className="brand" onClick={() => setOpen(false)}>
+          <span className="brand-mark">♥</span>
+          GoSupportMe
+        </Link>
+
+        <button className="menu-toggle" onClick={() => setOpen((v) => !v)} aria-label="Toggle menu" aria-expanded={open}>☰</button>
+
+        <nav className={`nav ${open ? 'open' : ''}`}>
+          {LINKS.map(([to, label]) => (
+            <NavLink key={to} to={to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={() => setOpen(false)}>
+              {label}
+            </NavLink>
+          ))}
+          <Link to="/create-campaign" className="btn btn-primary btn-sm" onClick={() => setOpen(false)}>＋ Start a fundraiser</Link>
+          <div className="nav-user">
+            <span className="avatar">{name.charAt(0)}</span>
+            <span className="nav-user-name" title={user?.email}>{name}</span>
+            <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Log out</button>
+          </div>
+        </nav>
       </div>
-    </nav>
+    </header>
   );
 };
 

@@ -1,23 +1,74 @@
-* {
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --brand: #10b981;
+  --brand-strong: #059669;
+  --brand-soft: #d1fae5;
+  --ink: #0f172a;
+  --bg: #f6f8f7;
+  --surface: #ffffff;
+  --surface-2: #f1f5f4;
+  --border: #e2e8e6;
+  --border-strong: #cbd5d1;
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #94a3b8;
+  --danger: #dc2626;
+  --gold: #f59e0b;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 10px 30px -14px rgba(15, 23, 42, 0.2);
+  --shadow-lg: 0 30px 70px -25px rgba(15, 23, 42, 0.45);
+  --gradient: linear-gradient(135deg, #059669 0%, #10b981 45%, #0ea5e9 120%);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  line-height: 1.6;
-  color: #333;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
 }
 
-button:hover {
-  opacity: 0.9;
-}
-
-input, textarea {
-  font-family: inherit;
+h1, h2, h3 {
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 a {
   color: inherit;
+  text-decoration: none;
+}
+
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+ul, ol {
+  list-style: none;
 }
